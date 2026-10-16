@@ -1,0 +1,407 @@
+
+
+<!doctype html>
+
+<html lang="ru">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+<meta name="theme-color" content="#071225">
+
+<title>АвтоЛут</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{margin:0;background:#050b17;color:#f3f7ff;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+
+main{max-width:650px;margin:auto;padding:20px 14px 100px}
+
+h1{color:#4de3ff;font-size:28px}
+
+p{color:#a8bad4;line-height:1.5}
+
+.card{background:#0d1a30;border:1px solid #234369;border-radius:18px;padding:17px;margin:13px 0}
+
+.plate{display:flex;background:linear-gradient(white,#dce5ee);color:#101c2c;border:3px solid #b6c5d5;border-radius:9px;margin:25px auto;width:100%;max-width:400px;font:bold 36px Arial;align-items:center}
+
+.plate div{padding:9px 4px;text-align:center;flex:1}
+
+.plate .region{border-left:2px solid #28394a;flex:0 0 65px;font-size:27px}
+
+.region small{display:block;font-size:10px}
+
+button{border:1px solid #356092;background:#102744;color:white;border-radius:12px;padding:13px;font-size:15px;font-weight:bold;width:100%;margin:4px 0}
+
+.primary{background:linear-gradient(110deg,#087bff,#4a40ff)}
+
+.price{font-size:25px;font-weight:900}
+
+.tabs{position:fixed;bottom:0;left:0;right:0;background:#071225;padding:8px;display:flex;gap:7px;border-top:1px solid #234369}
+
+.tabs button{font-size:12px;margin:0;padding:12px 3px}
+
+.hidden{display:none!important}
+
+.item{padding:12px;border:1px solid #234369;border-radius:12px;margin:9px 0;overflow-wrap:anywhere}
+
+.small{font-size:12px;color:#a8bad4}
+
+</style>
+
+</head>
+
+<body>
+
+<main>
+
+<header><h1>✦ АВТОЛУТ</h1><p>Генератор автомобильных номеров</p></header>
+
+<section id="game">
+
+<div class="card">
+
+<p>Сгенерируй номер, узнай редкость и собирай коллекцию!</p>
+
+<div class="plate"><div id="letters1">А</div><div id="digits">777</div><div id="letters2">МР</div><div class="region"><span id="region">97</span><small>RUS</small></div></div>
+
+<p id="rarity">Обычный</p>
+
+<div class="price" id="price">2 500 ₽</div>
+
+<button class="primary" onclick="generate()">✦ Сгенерировать номер</button>
+
+<button onclick="add()">＋ Добавить в коллекцию</button>
+
+<p class="small" id="message">Игровые цены. Не являются оценкой реальной сделки.</p>
+
+</div>
+
+<div class="card">
+
+<b>Статистика</b>
+
+<p>Сгенерировано: <span id="generated">0</span></p>
+
+<p>В коллекции: <span id="count">0</span></p>
+
+<p>Стоимость коллекции: <span id="total">0 ₽</span></p>
+
+</div>
+
+</section>
+
+<section id="collection" class="hidden">
+
+<div class="card"><h2>Моя коллекция</h2><div id="items"></div>
+
+<button onclick="exportData()">Экспорт коллекции</button>
+
+<button onclick="clearCollection()">Очистить коллекцию</button></div>
+
+</section>
+
+<section id="rarities" class="hidden">
+
+<div class="card"><h2>Редкости и цены</h2><div id="tierlist"></div></div>
+
+<div class="card"><h2>Арканы — <span id="arcCount"></span></h2><p>Все комбинации заданных серий.</p><div id="arcanalist"></div></div>
+
+<div class="card"><h3>Справочные источники</h3>
+
+<p>ГОСТ Р 50577-2018: <a href="https://base.garant.ru/72098366/" style="color:#4de3ff">форматы российских регистрационных знаков</a>.</p>
+
+<p>Примеры объявлений: <a href="https://rosnomer.com/ceny" style="color:#4de3ff">rosnomer.com</a>.</p>
+
+<p class="small">Игровые диапазоны заданы пользователем. Цены в объявлениях не гарантируют стоимость реальной сделки.</p></div>
+
+</section>
+
+</main>
+
+<nav class="tabs">
+
+<button onclick="page('game')">✦ Генератор</button>
+
+<button onclick="page('collection')">▤ Коллекция</button>
+
+<button onclick="page('rarities')">♛ Редкости</button>
+
+</nav>
+
+<script>
+
+const $=id=>document.getElementById(id);
+
+const fmt=n=>Math.round(n).toLocaleString('ru-RU');
+
+const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+
+const tiers=[
+
+{name:'Обычный',min:50,max:10000,color:'#b7c8df',chance:54},
+
+{name:'Необычный',min:10001,max:40000,color:'#4ee27b',chance:25},
+
+{name:'Редкий',min:40001,max:200000,color:'#32baff',chance:13},
+
+{name:'Эпический',min:200001,max:1000000,color:'#c17bff',chance:6},
+
+{name:'Легендарный',min:1000001,max:20000000,color:'#ffc857',chance:1.85},
+
+{name:'Аркана',min:20000001,max:1228148867,color:'#ff4bd8',chance:.15}
+
+];
+
+const low=Array.from({length:9},(_,i)=>String(i+1).padStart(3,'0'));
+
+const arcana=[];
+
+function addSeries(series,a,b,regions,numbers){
+
+ for(const r of regions)for(const n of numbers)
+
+ arcana.push({id:series+'-'+r+'-'+n,a,n,b,r,series});
+
+}
+
+addSeries('АМР','А','МР',['97'],low);
+
+addSeries('ВОР','В','ОР',['777'],['777','888','999']);
+
+addSeries('МММ','М','ММ',['97','77','777'],['888','999','777','666','333']);
+
+const special=[...low,'777','077','097'];
+
+addSeries('САС','С','АС',['97','777','77'],special);
+
+addSeries('ССС','С','СС',['97','777','77'],special);
+
+let current=null,generated=0,collection=[];
+
+try{
+
+ collection=JSON.parse(localStorage.getItem('autoloot_collection')||'[]');
+
+ generated=Number(localStorage.getItem('autoloot_generated')||0);
+
+ if(!Array.isArray(collection))collection=[];
+
+}catch(e){collection=[];generated=0}
+
+function persist(){
+
+ try{
+
+ localStorage.setItem('autoloot_collection',JSON.stringify(collection));
+
+ localStorage.setItem('autoloot_generated',generated);
+
+ }catch(e){}
+
+}
+
+function pickTier(){
+
+ let x=Math.random()*100;
+
+ for(const t of tiers){x-=t.chance;if(x<0)return t;}
+
+ return tiers[0];
+
+}
+
+function generate(){
+
+ const owned=new Set(collection.filter(x=>x.arcana).map(x=>x.id));
+
+ const available=arcana.filter(x=>!owned.has(x.id));
+
+ if(Math.random()<.0015&&available.length){
+
+  const a=available[rand(0,available.length-1)];
+
+  current={...a,arcana:true,tier:'Аркана',price:rand(20000001,1228148867)};
+
+ }else{
+
+  const letters='АВЕКМНОРСТУХ';
+
+  const t=pickTier();
+
+  current={
+
+   id:'n'+Date.now()+Math.random(),
+
+   a:letters[rand(0,letters.length-1)],
+
+   n:String(rand(0,999)).padStart(3,'0'),
+
+   b:letters[rand(0,letters.length-1)]+letters[rand(0,letters.length-1)],
+
+   r:['01','02','16','50','77','97','99','150','177','197','777'][rand(0,10)],
+
+   tier:t.name,price:rand(t.min,t.max),arcana:false
+
+  };
+
+ }
+
+ generated++;persist();render();stats();
+
+}
+
+function render(){
+
+ if(!current)return;
+
+ $('letters1').textContent=current.a;
+
+ $('digits').textContent=current.n;
+
+ $('letters2').textContent=current.b;
+
+ $('region').textContent=current.r;
+
+ $('rarity').textContent='Редкость: '+current.tier;
+
+ $('rarity').style.color=tiers.find(t=>t.name===current.tier).color;
+
+ $('price').textContent=fmt(current.price)+' ₽';
+
+ $('message').textContent=current.arcana?
+
+ 'Аркан серии '+current.series+'!':'Игровая оценка, не рыночная гарантия.';
+
+}
+
+function add(){
+
+ if(!current)return;
+
+ if(collection.some(x=>x.id===current.id)){alert('Этот номер уже собран!');return;}
+
+ collection.unshift({...current});persist();drawCollection();stats();
+
+ alert('Номер добавлен в коллекцию!');
+
+}
+
+function stats(){
+
+ $('generated').textContent=generated;
+
+ $('count').textContent=collection.length;
+
+ $('total').textContent=fmt(collection.reduce((s,x)=>s+x.price,0))+' ₽';
+
+}
+
+function drawCollection(){
+
+ const root=$('items');root.replaceChildren();
+
+ if(!collection.length){root.textContent='Коллекция пока пуста.';return;}
+
+ collection.forEach((x,i)=>{
+
+  const d=document.createElement('div');d.className='item';
+
+  const title=document.createElement('b');
+
+  title.textContent=`${x.a} ${x.n} ${x.b} ${x.r}`;
+
+  const sub=document.createElement('p');
+
+  sub.textContent=x.tier+' · '+fmt(x.price)+' ₽';
+
+  const del=document.createElement('button');del.textContent='Убрать';
+
+  del.onclick=()=>{collection.splice(i,1);persist();drawCollection();stats();};
+
+  d.append(title,sub,del);root.append(d);
+
+ });
+
+}
+
+function drawTiers(){
+
+ $('tierlist').replaceChildren();
+
+ tiers.forEach(t=>{
+
+  const d=document.createElement('div');d.className='item';
+
+  const b=document.createElement('b');b.style.color=t.color;
+
+  b.textContent=`${t.name}: ${fmt(t.min)}–${fmt(t.max)} ₽`;
+
+  d.append(b);$('tierlist').append(d);
+
+ });
+
+ $('arcCount').textContent=arcana.length;
+
+ $('arcanalist').replaceChildren();
+
+ arcana.forEach(x=>{
+
+  const d=document.createElement('div');d.className='item';
+
+  d.textContent=`${x.a} ${x.n} ${x.b} ${x.r} · ${x.series}`;
+
+  $('arcanalist').append(d);
+
+ });
+
+}
+
+function page(name){
+
+ ['game','collection','rarities'].forEach(x=>$(x).classList.toggle('hidden',x!==name));
+
+ if(name==='collection')drawCollection();
+
+ if(name==='rarities')drawTiers();
+
+ window.scrollTo(0,0);
+
+}
+
+function exportData(){
+
+ const blob=new Blob([JSON.stringify({generated,collection},null,2)],{type:'application/json'});
+
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+
+ a.href=url;a.download='autoloot-collection.json';a.click();
+
+ URL.revokeObjectURL(url);
+
+}
+
+function clearCollection(){
+
+ if(confirm('Удалить всю коллекцию?')){
+
+  collection=[];persist();drawCollection();stats();
+
+ }
+
+}
+
+current={id:'start',a:'А',n:'777',b:'МР',r:'97',tier:'Обычный',price:2500};
+
+render();stats();drawTiers();
+
+</script>
+
+</body>
+
+</html>
